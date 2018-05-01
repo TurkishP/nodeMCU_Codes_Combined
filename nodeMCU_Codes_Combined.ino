@@ -1,13 +1,10 @@
 /*note to self
- * This is the Final one sofar.
-  Solve webserver problem
-  Compare Amplitude value between arduinoFFT lib and MATLAB
-  Is HANN windowing the best option?
-  x value must be number of samples... hmm
-
-  for fft, it worked fine when i opened data files in the control loop.
+ * Be at peace. This is the Final Version Tracked on Git
+ 
+TO DO FFT
+  the time receiving code has to be commented out
 */
-int control = 0;
+
 int buttonState = 0;
 int button = 2; //D4 is GPIO2
 unsigned long buttonTime = 0;
@@ -18,9 +15,14 @@ int stringConcat = 1;
 //int fftCount = 0;
 String line;
 String stringToSend;
-int numOfDataSent=0;
-int varForDataCount =0;
+int numOfDataSent = 0;
+int varForDataCount = 0;
 String x;
+int firstTime = 1;
+
+int control = 3;
+String timeFileName = "time.txt";
+String resultFileName = "result.txt";
 //****************************    MPU6050 headers + variables + definitions   ************************************
 #include "MPU6050_6Axis_MotionApps20.h"
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -70,7 +72,7 @@ String dataString_t = "";
 const int chipSelect = 15;
 float y, p, r;
 float ax, ay, az;
-//   File dataFile;
+File dataFile1, dataFile2, dataFile3, results;
 
 //***************************   webserver related headers + variables   *****************************
 
@@ -100,7 +102,8 @@ double vImag[SAMPLES];
 //lets take the average of peaks.
 int count = 0;
 
-File dataFile1, dataFile2, dataFile3, results;
+
+
 
 // ======================================================================================================
 //                          /$$$$$$  /$$$$$$$$ /$$$$$$$$ /$$   /$$ /$$$$$$$
@@ -110,79 +113,14 @@ File dataFile1, dataFile2, dataFile3, results;
 //                         \____  $$| $$__/      | $$   | $$  | $$| $$____/
 //                         /$$  \ $$| $$         | $$   | $$  | $$| $$
 //                        |  $$$$$$/| $$$$$$$$   | $$   |  $$$$$$/| $$
-//                         \______/ |________/   |__/    \______/ |__/                                     
+//                         \______/ |________/   |__/    \______/ |__/
 // ======================================================================================================
 void setup() {
   Serial.begin(115200);
   pinMode(button, INPUT);
-//   mpu.setDMPEnabled(false);
-////   //get time stamp
-if(control == 1){
-  
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
+  //   mpu.setDMPEnabled(false);
 
-  Serial.print("Connecting to \'");
-  
-  
-  Serial.print(ssid);
-  Serial.println("\'");
 
-  WiFi.begin(ssid, password);
-
-  //ap에 접속이 될때까지 대기
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  Serial.println("WiFi connected.");
-
-  WiFiClient httpClient;
-
-  char *host = "capstone.cafe24app.com";
-  char *url = "/v/date";
-  int port = 80;
-
-  if (!httpClient.connect(host, port)) {
-    Serial.println("[WiFi] connection failed...");
-    return;
-  }
-
-  Serial.println("[WiFi] request from the client was handled...");
-  // http의 get 메세지 사용 웹페이지 요청
-  Serial.println("Connected to server");
-
-      httpClient.print(String("GET ") + url + " HTTP/1.1\r\n" + 
-                "Host: " + host + "\r\n" + 
-                "Connection: close\r\n\r\n");
-
-      unsigned long timeout = millis();
-      while (httpClient.available() == 0) {
-        if (millis() - timeout > 5000) {
-          Serial.println(">>> Client Timeout !");
-          httpClient.stop();
-          return;
-        }
-      }
-
-      //웹 서버로부터 수신된 데이터를 줄 단위로 출력
-      while (httpClient.available()) {
-        line = httpClient.readStringUntil('\r');
-        Serial.println(line);
-      }
-      
-      httpClient.stop();
-
-    SD.remove("result2.txt");
-    results = SD.open("result2.txt", FILE_WRITE);
-    dataString = ("{\"time\":" + String(line) + ",\"numOfDataSent\":\"" + String(numOfDataSent) + "\",\"user_no\":\"2\",\"data\":[");
-    results.println(dataString);
-    Serial.println(dataString);
-    results.close();
-
-}
- 
   //*********************************************    MPU6050 Setup   *****************************************
 
   // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -232,7 +170,7 @@ if(control == 1){
     dmpReady = true;
 
     // get expected DMP packet size for later comparison
-    packetSize = mpu.dmpGetFIFOPacketSize(); 
+    packetSize = mpu.dmpGetFIFOPacketSize();
   } else {
     // ERROR!
     // 1 = initial memory load failed
@@ -252,30 +190,32 @@ if(control == 1){
     Serial.println("SD card opened successfully");
   }
   firstMicros = micros() ;
- mpu.setDMPEnabled(false);
+  mpu.setDMPEnabled(false);
 
   //*********************************************    FFT  Setup   *****************************************
-// For recording data
-control =3;
-//    if(control ==1){
-//        for(int x =1; x<4; x++){
-//         SD.remove(String(x) + ".TXT");
-//         Serial.println("Erased "+ String(x) + ".TXT");
-//         }
-//         
-//        dataFile3 = SD.open("3.TXT", FILE_WRITE);
-//        dataFile2 = SD.open("2.TXT", FILE_WRITE);
-//        dataFile1 = SD.open("1.TXT", FILE_WRITE);
-//    }
-//
-//
-//    // For FFT
-//    if(control ==2){
-//        dataFile1 = SD.open("1.txt");
-//        dataFile2 = SD.open("2.txt");
-//        dataFile3 = SD.open("3.txt");
-//    }
+  // For recording data
+
+    if(control ==1){
+        for(int x =1; x<4; x++){
+         SD.remove(String(x) + ".TXT");
+         Serial.println("Erased "+ String(x) + ".TXT");
+         }
+
+        dataFile3 = SD.open("3.TXT", FILE_WRITE);
+        dataFile2 = SD.open("2.TXT", FILE_WRITE);
+        dataFile1 = SD.open("1.TXT", FILE_WRITE);
+    }
+  
+  
+  // For FFT
+  if (control == 2) {
+    dataFile1 = SD.open("s52_1.txt");
+    dataFile2 = SD.open("s52_2.txt");
+    dataFile3 = SD.open("s52_3.txt");
+  }
   sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
+
+
 }
 
 // ======================================================================================================
@@ -289,11 +229,80 @@ control =3;
 //      |__/     |__/|__/  |__/|______/|__/  \__/      |________/ \______/  \______/ |__/
 // ======================================================================================================
 void loop() {
+  //   //get time stamp
+  if(firstTime ==1 && control == 1){
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+
+    Serial.print("Connecting to \'");
+
+
+    Serial.print(ssid);
+    Serial.println("\'");
+
+    WiFi.begin(ssid, password);
+
+    //ap에 접속이 될때까지 대기
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println();
+    Serial.println("WiFi connected.");
+
+    WiFiClient httpClient;
+
+    char *host = "capstone.cafe24app.com";
+    char *url = "/v/date";
+    int port = 80;
+
+    if (!httpClient.connect(host, port)) {
+      Serial.println("[WiFi] connection failed...");
+      return;
+    }
+
+    Serial.println("[WiFi] request from the client was handled...");
+    // http의 get 메세지 사용 웹페이지 요청
+    Serial.println("Connected to server");
+
+    httpClient.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                     "Host: " + host + "\r\n" +
+                     "Connection: close\r\n\r\n");
+
+    unsigned long timeout = millis();
+    while (httpClient.available() == 0) {
+      if (millis() - timeout > 5000) {
+        Serial.println(">>> Client Timeout !");
+        httpClient.stop();
+        return;
+      }
+    }
+
+    //웹 서버로부터 수신된 데이터를 줄 단위로 출력
+    while (httpClient.available()) {
+      line = httpClient.readStringUntil('\r');
+      Serial.println(line);
+    }
+
+    httpClient.stop();
+
+    SD.remove(timeFileName);
+    SD.remove(resultFileName);
+    results = SD.open(timeFileName, FILE_WRITE);
+    delay(100);
+    dataString = ("{\"time\":" + String(line) + ",\"numOfDataSent\":\"" + String(numOfDataSent) + "\",\"user_no\":\"2\",\"data\":[");
+    results.println(dataString);
+    Serial.println(dataString);
+    results.close();
+    firstTime =0;
+}
 
   if (control == 1) {
     recordData();
+    
   } else if (control == 2) {
     doFFT();
+    
   } else if (control == 3) {
     mpu.setDMPEnabled(false);
     sendtoServer();
@@ -327,7 +336,7 @@ void doFFT() {
         x = dataFile2.readStringUntil('\n');
         vReal[i] = x.toFloat();
         vImag[i] = 0;
-      } else if (xyz % 3 == 2) {       
+      } else if (xyz % 3 == 2) {
         x = dataFile3.readStringUntil('\n');
         vReal[i] = x.toFloat();
         vImag[i] = 0;
@@ -368,7 +377,7 @@ void doFFT() {
     Serial.println(amp);
     Serial.print("SD is ");
     Serial.println(SDis);
-    Serial.print("Mean is "); 
+    Serial.print("Mean is ");
     Serial.println(meanis);
     Serial.print("Result of Data Check is ");
     Serial.println(acceptable);
@@ -386,7 +395,7 @@ void doFFT() {
       y_use = acceptable;
     } else if (xyz % 3 == 2) {
       z_peakSum = z_peakSum + peak;
-      z_hz = peak; 
+      z_hz = peak;
       z_amp = amp;
       z_use = acceptable;
     }
@@ -394,7 +403,7 @@ void doFFT() {
     count = count + 1;
     if (count == 9) {
       Serial.print("Average peak x y z for one minute is ");
-      Serial.println(String(x_peakSum/3) + " " + String(y_peakSum/3) + " " + String(z_peakSum/3));
+      Serial.println(String(x_peakSum / 3) + " " + String(y_peakSum / 3) + " " + String(z_peakSum / 3));
       x_hz = x_peakSum / 3;
       y_hz = y_peakSum / 3;
       z_hz = z_peakSum / 3;
@@ -408,18 +417,18 @@ void doFFT() {
   }//xyz loop end
 
   //Write results to file.
-  results = SD.open("result.txt", FILE_WRITE);
+  results = SD.open(resultFileName, FILE_WRITE);
 
-  if(stringConcat%7==0){
-      dataString = ("{\"x_hz\":\"" + String(x_hz) + "\",\"x_amp\":\"" + String(x_amp) + "\",\"x_use\":\"" + String(x_use) + "\",\"y_hz\":\"" + String(y_hz) + "\",\"y_amp\":\"" + String(y_amp) + "\",\"y_use\":\"" + String(y_use) + "\",\"z_hz\":\"" + String(z_hz) + "\",\"z_amp\":\"" + String(z_amp) + "\",\"z_use\":\"" + String(z_use) + "\"},");
-      results.println(dataString);
-      stringConcat = 1;
-  }else{
-      dataString = ("{\"x_hz\":\"" + String(x_hz) + "\",\"x_amp\":\"" + String(x_amp) + "\",\"x_use\":\"" + String(x_use) + "\",\"y_hz\":\"" + String(y_hz) + "\",\"y_amp\":\"" + String(y_amp) + "\",\"y_use\":\"" + String(y_use) + "\",\"z_hz\":\"" + String(z_hz) + "\",\"z_amp\":\"" + String(z_amp) + "\",\"z_use\":\"" + String(z_use) + "\"},");
-      stringConcat= stringConcat +1;
-      results.print(dataString);
+  if (stringConcat % 7 == 0) {
+    dataString = ("{\"x_hz\":\"" + String(x_hz) + "\",\"x_amp\":\"" + String(x_amp) + "\",\"x_use\":\"" + String(x_use) + "\",\"y_hz\":\"" + String(y_hz) + "\",\"y_amp\":\"" + String(y_amp) + "\",\"y_use\":\"" + String(y_use) + "\",\"z_hz\":\"" + String(z_hz) + "\",\"z_amp\":\"" + String(z_amp) + "\",\"z_use\":\"" + String(z_use) + "\"},");
+    results.println(dataString);
+    stringConcat = 1;
+  } else {
+    dataString = ("{\"x_hz\":\"" + String(x_hz) + "\",\"x_amp\":\"" + String(x_amp) + "\",\"x_use\":\"" + String(x_use) + "\",\"y_hz\":\"" + String(y_hz) + "\",\"y_amp\":\"" + String(y_amp) + "\",\"y_use\":\"" + String(y_use) + "\",\"z_hz\":\"" + String(z_hz) + "\",\"z_amp\":\"" + String(z_amp) + "\",\"z_use\":\"" + String(z_use) + "\"},");
+    stringConcat = stringConcat + 1;
+    results.print(dataString);
   }
-//  fftCount = fftCount+1;
+  //  fftCount = fftCount+1;
   Serial.println(dataString);
   results.close();
 }
@@ -433,16 +442,16 @@ void doFFT() {
 //        | $$  | $$| $$$$$$$$|  $$$$$$/|  $$$$$$/| $$  | $$| $$$$$$$/      | $$$$$$$/| $$  | $$   | $$  | $$  | $$
 //        |__/  |__/|________/ \______/  \______/ |__/  |__/|_______/       |_______/ |__/  |__/   |__/  |__/  |__/
 void recordData() {
-varForDataCount = varForDataCount+1;
+  varForDataCount = varForDataCount + 1;
   if (!dmpReady) return;
 
   // wait for MPU interrupt or extra packet(s) available
   //  while (!mpuInterrupt && fifoCount < packetSize) {
   //    // other program behavior stuff here
   //
-//       if you are really paranoid you can frequently test in between other
-//       stuff to see if mpuInterrupt is true, and if so, "break;" from the
-//       while() loop to immediately process the MPU data
+  //       if you are really paranoid you can frequently test in between other
+  //       stuff to see if mpuInterrupt is true, and if so, "break;" from the
+  //       while() loop to immediately process the MPU data
   //
   //    yield();
   //  }
@@ -494,14 +503,14 @@ varForDataCount = varForDataCount+1;
     dataFile2.println(String(ay));
     dataFile3.println(String(az));
 
-    if(varForDataCount%500==0){
-    dataFile1.close();
-    dataFile2.close();
-    dataFile3.close();
+    if (varForDataCount % 500 == 0) {
+      dataFile1.close();
+      dataFile2.close();
+      dataFile3.close();
 
-    dataFile3 = SD.open("3.txt",FILE_WRITE);
-    dataFile2 = SD.open("2.txt",FILE_WRITE);
-    dataFile1 = SD.open("1.txt",FILE_WRITE);
+      dataFile3 = SD.open("3.txt", FILE_WRITE);
+      dataFile2 = SD.open("2.txt", FILE_WRITE);
+      dataFile1 = SD.open("1.txt", FILE_WRITE);
     }
 
 
@@ -518,7 +527,7 @@ varForDataCount = varForDataCount+1;
 //              |  $$$$$$/| $$$$$$$$| $$  | $$   \  $/   | $$$$$$$$| $$  | $$
 //               \______/ |________/|__/  |__/    \_/    |________/|__/  |__/
 void sendtoServer() {
-// fftCount =0;
+  // fftCount =0;
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
 
@@ -530,7 +539,7 @@ void sendtoServer() {
 
   //ap에 접속이 될때까지 대기
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);                                               
+    delay(500);
     Serial.print(".");
   }
   Serial.println();
@@ -546,75 +555,79 @@ void sendtoServer() {
     return;
   }
 
-//  Serial.println("[WiFi] request from the client was handled...");
+  //  Serial.println("[WiFi] request from the client was handled...");
   // http의 get 메세지 사용 웹페이지 요청
   Serial.println("Connected to server");
 
-  results = SD.open("result.txt");
+  results = SD.open(timeFileName);
 
-        if (results) {
-          //read first line which contains time information FFT data
-          stringToSend = results.readStringUntil('\n');
-          String timeAndUserNo = stringToSend;
-          String start = timeAndUserNo.substring(0,timeAndUserNo.indexOf("Sent")+7);
-          String finish = timeAndUserNo.substring(timeAndUserNo.indexOf("Sent")+8);
-          Serial.println(start);
-          Serial.println(finish);
-          
-           // read from the file until there's nothing else in it:
-                    while(results.available()){
-                          if (!httpClient.connect(host, port)) {
-                              Serial.println("[WiFi] connection failed...");
-                              return;
-                          }
-                      //each line has 7 minutes worth of data.
-                      //so here in the loop we are sending 5 lines making it 35 min worth of data
-                      for(int x= 0; x<5; x++){
-                        buff = results.readStringUntil('\n');
-//                        Serial.println("read Number " + String(x) + " and buff : " + buff);
-                        stringToSend = stringToSend + buff;
-                      }
-                
-                       //after concatenating the data, get rid of the hanging comma at the end
-                       //and properly end the string by adding ]}.
-                        stringToSend.remove(stringToSend.lastIndexOf(","));
-                        stringToSend = stringToSend.substring(0, stringToSend.length()) + "]}";
-                        
-                        //if it is not the first line, we need to concatenate {"data":[ to fit data transfer protocol
-                        buff = stringToSend;
-                        stringToSend = start + String(numOfDataSent);
-                        stringToSend = stringToSend + finish + buff;
-                        
-                        httpClient.println("POST /v/data HTTP/1.1");
-                        httpClient.println("Host: capstone.cafe24app.com");
-                        httpClient.println("Connection: close");
-                        httpClient.println("Content-Type: application/json");
-                        httpClient.print("Content-Length: ");
-                        httpClient.println(stringToSend.length());
-                        httpClient.println();
-                        httpClient.println(stringToSend);
-                        Serial.println(stringToSend); 
-                        stringToSend = "";
-                        numOfDataSent = numOfDataSent + 35;
-                        
-                //      웹 서버로부터 수신된 데이터를 줄 단위로 출력
-                      while (httpClient.available()) {
-                        String line = httpClient.readStringUntil('\r');
-                        Serial.print(line);
-                      }
-                
-                //      delay(100);
-                      yield();
-                      httpClient.stop();
-                    }
-                    
-          // close the file:
-          results.close();
-          numOfDataSent = 0;
-      
-        } else {
-          // if the file didn't open, print an error:
-          Serial.println("Error Opening File");
-      
-        }
+  if (results) {
+    //read first line which contains time information FFT data
+    stringToSend = results.readStringUntil('\n');
+    stringToSend = stringToSend + results.readStringUntil('\n');
+    String timeAndUserNo = stringToSend;
+    String start = timeAndUserNo.substring(0, timeAndUserNo.indexOf("Sent") + 7);
+    String finish = timeAndUserNo.substring(timeAndUserNo.indexOf("Sent") + 8);
+    Serial.println(start);
+    Serial.println(finish);
+    results.close();
+    
+    results = SD.open(resultFileName);
+    // read from the file until there's nothing else in it:
+    while (results.available()) {
+      if (!httpClient.connect(host, port)) {
+        Serial.println("[WiFi] connection failed...");
+        return;
+      }
+      //each line has 7 minutes worth of data.
+      //so here in the loop we are sending 5 lines making it 35 min worth of data
+      for (int x = 0; x < 5; x++) {
+        buff = results.readStringUntil('\n');
+        //                        Serial.println("read Number " + String(x) + " and buff : " + buff);
+        stringToSend = stringToSend + buff;
+      }
+
+      //after concatenating the data, get rid of the hanging comma at the end
+      //and properly end the string by adding ]}.
+      stringToSend.remove(stringToSend.lastIndexOf(","));
+      stringToSend = stringToSend.substring(0, stringToSend.length()) + "]}";
+
+      //if it is not the first line, we need to concatenate {"data":[ to fit data transfer protocol
+      buff = stringToSend;
+      stringToSend = start + String(numOfDataSent);
+      stringToSend = stringToSend + finish + buff;
+
+      httpClient.println("POST /v/data HTTP/1.1");
+      httpClient.println("Host: capstone.cafe24app.com");
+      httpClient.println("Connection: close"); 
+      httpClient.println("Content-Type: application/json");
+      httpClient.print("Content-Length: ");
+      httpClient.println(stringToSend.length());
+      httpClient.println();
+      httpClient.println(stringToSend);
+      Serial.println(stringToSend);
+      stringToSend = "";
+      numOfDataSent = numOfDataSent + 35;
+
+      //      웹 서버로부터 수신된 데이터를 줄 단위로 출력
+      while (httpClient.available()) {
+        String line = httpClient.readStringUntil('\r');
+        line.remove(8);
+        Serial.print(line);
+      }
+
+      //      delay(100);
+      yield();
+      httpClient.stop();
+    }
+
+    // close the file:
+    results.close();
+    numOfDataSent = 0;
+
+  } else {
+    // if the file didn't open, print an error:
+    Serial.println("Error Opening File");
+
+  }
 }
