@@ -21,7 +21,7 @@ String acelVal;
 int firstTime = 1;
 
 //1=recordData 2=fft 3=sendToServer
-int control = 1;
+int control = 3;
 String timeFileName = "time.txt";
 String resultFileName = "result.txt";
 
@@ -206,6 +206,7 @@ void setup() {
         dataFile3 = SD.open("3.TXT", FILE_WRITE);
         dataFile2 = SD.open("2.TXT", FILE_WRITE);
         dataFile1 = SD.open("1.TXT", FILE_WRITE);
+        
     }
   
   
@@ -297,6 +298,7 @@ void loop() {
     Serial.println(dataString);
     results.close();
     firstTime =0;
+    mpu.setDMPEnabled(true);
 }
 
   if (control == 1) {
@@ -502,7 +504,6 @@ void recordData() {
     idx = idx + 1;
     thisMicros = thisMicros / 1000000;
     Serial.println(String(ax) + " " + String(ay) + " " + String(az));
-    Serial.println("Hi");
 
     dataFile1.println(String(ax));
     dataFile2.println(String(ay));
