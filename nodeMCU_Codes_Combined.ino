@@ -1,8 +1,6 @@
 /*note to self
  * Be at peace. This is the Final Version Tracked on Git
  
-TO DO FFT
-  the time receiving code has to be commented out
 */
 
 int buttonState = 0;
