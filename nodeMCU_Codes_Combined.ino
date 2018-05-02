@@ -8,21 +8,23 @@ TO DO FFT
 int buttonState = 0;
 int button = 2; //D4 is GPIO2
 unsigned long buttonTime = 0;
-int fileCount = 1;
-int fileSubCount = 1;
-double amp = 0;
-int stringConcat = 1;
+
+int fileCount = 1; //when deleting multiple files.
+double amp = 0; //saves amplitude of the most dominant Hz in the sample that is FFTed
+int stringConcat = 1; //count variable used to concat minutes worth of analyzed data.
 //int fftCount = 0;
-String line;
-String stringToSend;
-int numOfDataSent = 0;
-int varForDataCount = 0;
-String x;
+String line; //string used to read in cur time from server.
+String stringToSend; //string that is read and will be sen to server
+int numOfDataSent = 0; //variable that keeps count of how many mintues worth of data was sent to server
+int varForDataCount = 0; //close dataFile every 500 recordings from MPU. Sampling rate is 50 so every 10 seconds.
+String acelVal; 
 int firstTime = 1;
 
-int control = 3;
+//1=recordData 2=fft 3=sendToServer
+int control = 1;
 String timeFileName = "time.txt";
 String resultFileName = "result.txt";
+
 //****************************    MPU6050 headers + variables + definitions   ************************************
 #include "MPU6050_6Axis_MotionApps20.h"
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -230,7 +232,7 @@ void setup() {
 // ======================================================================================================
 void loop() {
   //   //get time stamp
-  if(firstTime ==1 && control == 1){
+  if(firstTime==1 && control==1){
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
 
@@ -329,16 +331,16 @@ void doFFT() {
     /*Read Saved Data*/
     for (int i = 0; i < SAMPLES; i++) {
       if (xyz % 3 == 0) {
-        x = dataFile1.readStringUntil('\n');
-        vReal[i] = x.toFloat();
+        acelVal = dataFile1.readStringUntil('\n');
+        vReal[i] = acelVal.toFloat();
         vImag[i] = 0;
       } else if (xyz % 3 == 1) {
-        x = dataFile2.readStringUntil('\n');
-        vReal[i] = x.toFloat();
+        acelVal = dataFile2.readStringUntil('\n');
+        vReal[i] = acelVal.toFloat();
         vImag[i] = 0;
       } else if (xyz % 3 == 2) {
-        x = dataFile3.readStringUntil('\n');
-        vReal[i] = x.toFloat();
+        acelVal = dataFile3.readStringUntil('\n');
+        vReal[i] = acelVal.toFloat();
         vImag[i] = 0;
       }
       //            while(micros() < (microseconds + sampling_period_us)){
@@ -403,6 +405,7 @@ void doFFT() {
     count = count + 1;
     if (count == 9) {
       Serial.print("Average peak x y z for one minute is ");
+
       Serial.println(String(x_peakSum / 3) + " " + String(y_peakSum / 3) + " " + String(z_peakSum / 3));
       x_hz = x_peakSum / 3;
       y_hz = y_peakSum / 3;
@@ -499,6 +502,8 @@ void recordData() {
     idx = idx + 1;
     thisMicros = thisMicros / 1000000;
     Serial.println(String(ax) + " " + String(ay) + " " + String(az));
+    Serial.println("Hi");
+
     dataFile1.println(String(ax));
     dataFile2.println(String(ay));
     dataFile3.println(String(az));
