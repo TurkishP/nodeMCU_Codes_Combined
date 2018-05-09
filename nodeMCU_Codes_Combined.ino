@@ -194,7 +194,8 @@ void setup() {
 
   //*********************************************    FFT  Setup   *****************************************
   // For recording data
-
+//    SD.remove(timeFileName);
+//    SD.remove(resultFileName);
     if(control ==1){
         for(int x =1; x<4; x++){
          SD.remove(String(x) + ".TXT");
@@ -210,9 +211,9 @@ void setup() {
   
   // For FFT
   if (control == 2) {
-    dataFile1 = SD.open("s52_1.txt");
-    dataFile2 = SD.open("s52_2.txt");
-    dataFile3 = SD.open("s52_3.txt");
+    dataFile1 = SD.open("s3_1.txt");
+    dataFile2 = SD.open("s3_2.txt");
+    dataFile3 = SD.open("s3_3.txt");
   }
   sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
 
@@ -298,6 +299,28 @@ void loop() {
     firstTime =0;
     mpu.setDMPEnabled(true);
 }
+//
+//  // read the pushbutton input pin:
+//  buttonState = digitalRead(buttonPin);
+//
+//  // compare the buttonState to its previous state
+//  if (buttonState != lastButtonState) {
+//    // if the state has changed, increment the counter
+//    if (buttonState == HIGH) {
+//      // if the current state is HIGH then the button went from off to on:
+//      buttonPushCounter++;
+//      Serial.println("on");
+//      Serial.print("number of button pushes: ");
+//      Serial.println(buttonPushCounter);
+//    } else {
+//      // if the current state is LOW then the button went from on to off:
+//      Serial.println("off");
+//    }
+//    // Delay a little bit to avoid bouncing
+//    delay(30);
+//  }
+//  // save the current state as the last state, for next time through the loop
+//  lastButtonState = buttonState;
 
   if (control == 1) {
     recordData();
@@ -321,6 +344,7 @@ void loop() {
 //                              |__/      |__/         |__/
 void doFFT() {
   double x_hz, y_hz, z_hz, x_amp, y_amp, z_amp, x_use, y_use, z_use, x_peakSum, y_peakSum, z_peakSum;
+  int verification_x,verification_y, verification_z;
   //X Y Z values are all saved in separate files.
   //We are repeating this loop below 9 times because each
   //FFT is 20 seconds and we have three axis information.
@@ -389,17 +413,17 @@ void doFFT() {
       x_peakSum = x_peakSum + peak;
       x_hz = peak;
       x_amp = amp;
-      x_use = acceptable;
+      verification_x = verification_x+acceptable;
     } else if (xyz % 3 == 1) {
       y_peakSum = y_peakSum + peak;
       y_hz = peak;
       y_amp = amp;
-      y_use = acceptable;
+      verification_y = verification_y+acceptable;
     } else if (xyz % 3 == 2) {
       z_peakSum = z_peakSum + peak;
       z_hz = peak;
       z_amp = amp;
-      z_use = acceptable;
+      verification_z = verification_z+acceptable;
     }
 
     count = count + 1;
@@ -415,6 +439,25 @@ void doFFT() {
       y_peakSum = 0;
       z_peakSum = 0;
       count = 0;
+
+      if(verification_z ==3){
+        x_use = 1;
+      }else{
+        x_use = 0;
+      }
+      if(verification_y ==3){
+        y_use = 1;
+      }else{
+        y_use = 0;
+      }
+      if(verification_z ==3){
+        z_use = 1;
+      }else{
+        z_use = 0;
+      }
+       verification_x = 0;
+       verification_y = 0;
+       verification_z = 0;
     }
 
   }//xyz loop end
@@ -575,7 +618,7 @@ void sendtoServer() {
     Serial.println(start);
     Serial.println(finish);
     results.close();
-    
+    stringToSend= ""; 
     results = SD.open(resultFileName);
     // read from the file until there's nothing else in it:
     while (results.available()) {
@@ -598,6 +641,7 @@ void sendtoServer() {
 
       //if it is not the first line, we need to concatenate {"data":[ to fit data transfer protocol
       buff = stringToSend;
+      Serial.println("buff is "+ buff);
       stringToSend = start + String(numOfDataSent);
       stringToSend = stringToSend + finish + buff;
 
