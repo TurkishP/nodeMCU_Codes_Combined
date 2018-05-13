@@ -1,5 +1,13 @@
 /*note to self
  * Be at peace. This is the Final Version Tracked on Git
+
+button: 
+  # set boolean values to denote what mode we are in or what function is in oepration currently.
+  # set double to keep track of clock time so that the button push is not accepted unless there
+  is a 2 second delay.
+
+  #put a marking at the end of the text file raw data so that when we reach the end,
+  we know that FFT is over.
  
 */
 
@@ -299,28 +307,28 @@ void loop() {
     firstTime =0;
     mpu.setDMPEnabled(true);
 }
-//
-//  // read the pushbutton input pin:
-//  buttonState = digitalRead(buttonPin);
-//
-//  // compare the buttonState to its previous state
-//  if (buttonState != lastButtonState) {
-//    // if the state has changed, increment the counter
-//    if (buttonState == HIGH) {
-//      // if the current state is HIGH then the button went from off to on:
-//      buttonPushCounter++;
-//      Serial.println("on");
-//      Serial.print("number of button pushes: ");
-//      Serial.println(buttonPushCounter);
-//    } else {
-//      // if the current state is LOW then the button went from on to off:
-//      Serial.println("off");
-//    }
-//    // Delay a little bit to avoid bouncing
-//    delay(30);
-//  }
-//  // save the current state as the last state, for next time through the loop
-//  lastButtonState = buttonState;
+
+  // read the pushbutton input pin:
+  buttonState = digitalRead(buttonPin);
+
+  // compare the buttonState to its previous state
+  if (buttonState != lastButtonState) {
+    // if the state has changed, increment the counter
+    if (buttonState == HIGH) {
+      // if the current state is HIGH then the button went from off to on:
+      buttonPushCounter++;
+      Serial.println("on");
+      Serial.print("number of button pushes: ");
+      Serial.println(buttonPushCounter);
+    } else {
+      // if the current state is LOW then the button went from on to off:
+      Serial.println("off");
+    }
+    // Delay a little bit to avoid bouncing
+    delay(30);
+  }
+  // save the current state as the last state, for next time through the loop
+  lastButtonState = buttonState;
 
   if (control == 1) {
     recordData();
@@ -342,6 +350,7 @@ void loop() {
 //                              | $$      | $$         | $$
 //                              | $$      | $$         | $$
 //                              |__/      |__/         |__/
+
 void doFFT() {
   double x_hz, y_hz, z_hz, x_amp, y_amp, z_amp, x_use, y_use, z_use, x_peakSum, y_peakSum, z_peakSum;
   int verification_x,verification_y, verification_z;
