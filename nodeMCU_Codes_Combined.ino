@@ -1,19 +1,24 @@
 /*note to self
- * Be at peace. This is the Final Version Tracked on Git
+   Be at peace. This is the Final Version Tracked on Git
 
-button: 
+  button:
   # set boolean values to denote what mode we are in or what function is in oepration currently.
   # set double to keep track of clock time so that the button push is not accepted unless there
   is a 2 second delay.
 
   #put a marking at the end of the text file raw data so that when we reach the end,
   we know that FFT is over.
- 
-*/
 
+*/
 int buttonState = 0;
-int button = 2; //D4 is GPIO2
+int lastButtonState = 0;
+int buttonPushCounter = 0;
+int buttonPin = 2; //D4 is GPIO2
 unsigned long buttonTime = 0;
+unsigned long ButtonPress;
+unsigned long nextButtonPress;
+boolean fftNotDone = true;
+boolean resultsNotDone = true;
 
 int fileCount = 1; //when deleting multiple files.
 double amp = 0; //saves amplitude of the most dominant Hz in the sample that is FFTed
@@ -23,11 +28,11 @@ String line; //string used to read in cur time from server.
 String stringToSend; //string that is read and will be sen to server
 int numOfDataSent = 0; //variable that keeps count of how many mintues worth of data was sent to server
 int varForDataCount = 0; //close dataFile every 500 recordings from MPU. Sampling rate is 50 so every 10 seconds.
-String acelVal; 
+String acelVal;
 int firstTime = 1;
 
 //1=recordData 2=fft 3=sendToServer
-int control = 3;
+int control = 1;
 String timeFileName = "time.txt";
 String resultFileName = "result.txt";
 
@@ -39,7 +44,7 @@ String resultFileName = "result.txt";
 MPU6050 mpu;
 #define OUTPUT_READABLE_YAWPITCHROLL
 #define INTERRUPT_PIN 15  // use pin 2 on Arduino Uno & most boards
-#define LED_PIN 13 // (Arduino is 13, Teensy is 11, Teensy++ is 6)
+#define LED_PIN 13 //
 bool blinkState = false;
 
 // MPU control/status vars
@@ -80,7 +85,7 @@ String dataString_t = "";
 const int chipSelect = 15;
 float y, p, r;
 float ax, ay, az;
-File dataFile1, dataFile2, dataFile3, results;
+File dataFile1, dataFile2, dataFile3, results, timer;
 
 //***************************   webserver related headers + variables   *****************************
 
@@ -124,13 +129,15 @@ int count = 0;
 //                         \______/ |________/   |__/    \______/ |__/
 // ======================================================================================================
 void setup() {
+
+
   Serial.begin(115200);
-  pinMode(button, INPUT);
+  pinMode(buttonPin, INPUT);
   //   mpu.setDMPEnabled(false);
 
 
   //*********************************************    MPU6050 Setup   *****************************************
-
+//  const uint8_t sda = D7;
   // join I2C bus (I2Cdev library doesn't do this automatically)
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Wire.begin();
@@ -202,29 +209,32 @@ void setup() {
 
   //*********************************************    FFT  Setup   *****************************************
   // For recording data
-//    SD.remove(timeFileName);
-//    SD.remove(resultFileName);
-    if(control ==1){
-        for(int x =1; x<4; x++){
-         SD.remove(String(x) + ".TXT");
-         Serial.println("Erased "+ String(x) + ".TXT");
-         }
-
-        dataFile3 = SD.open("3.TXT", FILE_WRITE);
-        dataFile2 = SD.open("2.TXT", FILE_WRITE);
-        dataFile1 = SD.open("1.TXT", FILE_WRITE);
-        
+  //    SD.remove(timeFileName);
+  //    SD.remove(resultFileName);
+  if (control == 1) {
+    for (int x = 1; x < 4; x++) {
+      SD.remove(String(x) + ".TXT");
+      Serial.println("Erased " + String(x) + ".TXT");
     }
+
+    dataFile3 = SD.open("3.TXT", FILE_WRITE);
+    dataFile2 = SD.open("2.TXT", FILE_WRITE);
+    dataFile1 = SD.open("1.TXT", FILE_WRITE);
+
+    SD.remove(timeFileName);
+    SD.remove(resultFileName);
+    timer = SD.open(timeFileName, FILE_WRITE);
+    results = SD.open(resultFileName, FILE_WRITE);
+  }
   
-  
-  // For FFT
+//  // For FFT
   if (control == 2) {
-    dataFile1 = SD.open("s3_1.txt");
-    dataFile2 = SD.open("s3_2.txt");
-    dataFile3 = SD.open("s3_3.txt");
+    dataFile1 = SD.open("1.txt");
+    dataFile2 = SD.open("2.txt");
+    dataFile3 = SD.open("3.txt");
   }
   sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
-
+  
 
 }
 
@@ -240,7 +250,7 @@ void setup() {
 // ======================================================================================================
 void loop() {
   //   //get time stamp
-  if(firstTime==1 && control==1){
+  if (firstTime == 1 && control == 1) {
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
 
@@ -263,7 +273,7 @@ void loop() {
     WiFiClient httpClient;
 
     char *host = "capstone.cafe24app.com";
-    char *url = "/v/date";
+    char *url = "/v/date"; 
     int port = 80;
 
     if (!httpClient.connect(host, port)) {
@@ -296,50 +306,86 @@ void loop() {
 
     httpClient.stop();
 
-    SD.remove(timeFileName);
-    SD.remove(resultFileName);
-    results = SD.open(timeFileName, FILE_WRITE);
-    delay(100);
+
     dataString = ("{\"time\":" + String(line) + ",\"numOfDataSent\":\"" + String(numOfDataSent) + "\",\"user_no\":\"2\",\"data\":[");
-    results.println(dataString);
-    Serial.println(dataString);
-    results.close();
-    firstTime =0;
+    timer.println(dataString);
+//    Serial.println(dataString);
+    timer.close();
+//    results.close();
+
+
+
+
     mpu.setDMPEnabled(true);
-}
+    ButtonPress = millis();
+        firstTime = 0;
+  }
 
-  // read the pushbutton input pin:
+  // read the pushbutton input pin
+
+//  boolean safe = false;
   buttonState = digitalRead(buttonPin);
-
+if(ButtonPress - millis() > 300){
   // compare the buttonState to its previous state
   if (buttonState != lastButtonState) {
-    // if the state has changed, increment the counter
+    // if the state has changed, increment the counter  
+    ButtonPress = millis();
     if (buttonState == HIGH) {
       // if the current state is HIGH then the button went from off to on:
-      buttonPushCounter++;
+
+
+        buttonPushCounter++;
+        control++;
+        if(control >5){
+          control = 1;
+        }
+      
       Serial.println("on");
       Serial.print("number of button pushes: ");
       Serial.println(buttonPushCounter);
+      Serial.print("control is");
+      Serial.println(control);
     } else {
       // if the current state is LOW then the button went from on to off:
       Serial.println("off");
     }
     // Delay a little bit to avoid bouncing
-    delay(30);
   }
   // save the current state as the last state, for next time through the loop
   lastButtonState = buttonState;
+}
 
   if (control == 1) {
+//    Serial.println("RECORDING START");
     recordData();
-    
+
   } else if (control == 2) {
+      Serial.println("FFT START");
+      if(firstTime ==0){
+        dataFile1.print(String("FINISHED"));
+        dataFile2.print(String("FINISHED"));
+        dataFile3.print(String("FINISHED"));
+
+        dataFile1.flush();dataFile2.flush();dataFile3.flush();
+          firstTime =1;
+        dataFile1.close();
+        dataFile2.close();
+        dataFile3.close();
+        dataFile1 = SD.open("1.txt");
+        dataFile2 = SD.open("2.txt");
+        dataFile3 = SD.open("3.txt");
+      }
+      
     doFFT();
-    
   } else if (control == 3) {
+    Serial.println("start server");
     mpu.setDMPEnabled(false);
     sendtoServer();
+    control = 4;
+    Serial.println("done sending data");
   }
+
+
 }
 
 //                               /$$$$$$$$ /$$$$$$$$ /$$$$$$$$
@@ -353,7 +399,7 @@ void loop() {
 
 void doFFT() {
   double x_hz, y_hz, z_hz, x_amp, y_amp, z_amp, x_use, y_use, z_use, x_peakSum, y_peakSum, z_peakSum;
-  int verification_x,verification_y, verification_z;
+  int verification_x, verification_y, verification_z;
   //X Y Z values are all saved in separate files.
   //We are repeating this loop below 9 times because each
   //FFT is 20 seconds and we have three axis information.
@@ -364,15 +410,45 @@ void doFFT() {
     /*Read Saved Data*/
     for (int i = 0; i < SAMPLES; i++) {
       if (xyz % 3 == 0) {
-        acelVal = dataFile1.readStringUntil('\n');
+        acelVal = dataFile1.readStringUntil('\n'); 
+        if (acelVal == "FINISHED") {
+                 Serial.print("acelVal was ");
+                 Serial.println(acelVal);
+                  dataFile1.close();
+                  dataFile2.close();
+                  dataFile3.close();
+          control = 3;
+          return;
+
+        }
         vReal[i] = acelVal.toFloat();
         vImag[i] = 0;
       } else if (xyz % 3 == 1) {
         acelVal = dataFile2.readStringUntil('\n');
+                if (acelVal == "FINISHED") {
+                 Serial.print("acelVal was ");
+                 Serial.println(acelVal);
+                  dataFile1.close();
+                  dataFile2.close();
+                  dataFile3.close();
+          control = 3;
+          return;
+
+        }
         vReal[i] = acelVal.toFloat();
         vImag[i] = 0;
       } else if (xyz % 3 == 2) {
         acelVal = dataFile3.readStringUntil('\n');
+                if (acelVal == "FINISHED") {
+                 Serial.print("acelVal was ");
+                 Serial.println(acelVal);
+                  dataFile1.close();
+                  dataFile2.close();
+                  dataFile3.close();
+          control = 3;
+          return;
+
+        }
         vReal[i] = acelVal.toFloat();
         vImag[i] = 0;
       }
@@ -422,17 +498,17 @@ void doFFT() {
       x_peakSum = x_peakSum + peak;
       x_hz = peak;
       x_amp = amp;
-      verification_x = verification_x+acceptable;
+      verification_x = verification_x + acceptable;
     } else if (xyz % 3 == 1) {
       y_peakSum = y_peakSum + peak;
       y_hz = peak;
       y_amp = amp;
-      verification_y = verification_y+acceptable;
+      verification_y = verification_y + acceptable;
     } else if (xyz % 3 == 2) {
       z_peakSum = z_peakSum + peak;
       z_hz = peak;
       z_amp = amp;
-      verification_z = verification_z+acceptable;
+      verification_z = verification_z + acceptable;
     }
 
     count = count + 1;
@@ -449,30 +525,30 @@ void doFFT() {
       z_peakSum = 0;
       count = 0;
 
-      if(verification_z ==3){
+      if (verification_z == 3) {
         x_use = 1;
-      }else{
+      } else {
         x_use = 0;
       }
-      if(verification_y ==3){
+      if (verification_y == 3) {
         y_use = 1;
-      }else{
+      } else {
         y_use = 0;
       }
-      if(verification_z ==3){
+      if (verification_z == 3) {
         z_use = 1;
-      }else{
+      } else {
         z_use = 0;
       }
-       verification_x = 0;
-       verification_y = 0;
-       verification_z = 0;
+      verification_x = 0;
+      verification_y = 0;
+      verification_z = 0;
     }
 
   }//xyz loop end
 
   //Write results to file.
-  results = SD.open(resultFileName, FILE_WRITE);
+  //  results = SD.open(resultFileName, FILE_WRITE);
 
   if (stringConcat % 7 == 0) {
     dataString = ("{\"x_hz\":\"" + String(x_hz) + "\",\"x_amp\":\"" + String(x_amp) + "\",\"x_use\":\"" + String(x_use) + "\",\"y_hz\":\"" + String(y_hz) + "\",\"y_amp\":\"" + String(y_amp) + "\",\"y_use\":\"" + String(y_use) + "\",\"z_hz\":\"" + String(z_hz) + "\",\"z_amp\":\"" + String(z_amp) + "\",\"z_use\":\"" + String(z_use) + "\"},");
@@ -485,7 +561,7 @@ void doFFT() {
   }
   //  fftCount = fftCount+1;
   Serial.println(dataString);
-  results.close();
+  results.flush();
 }
 
 //         /$$$$$$$  /$$$$$$$$  /$$$$$$   /$$$$$$  /$$$$$$$  /$$$$$$$        /$$$$$$$   /$$$$$$  /$$$$$$$$ /$$$$$$
@@ -499,17 +575,6 @@ void doFFT() {
 void recordData() {
   varForDataCount = varForDataCount + 1;
   if (!dmpReady) return;
-
-  // wait for MPU interrupt or extra packet(s) available
-  //  while (!mpuInterrupt && fifoCount < packetSize) {
-  //    // other program behavior stuff here
-  //
-  //       if you are really paranoid you can frequently test in between other
-  //       stuff to see if mpuInterrupt is true, and if so, "break;" from the
-  //       while() loop to immediately process the MPU data
-  //
-  //    yield();
-  //  }
 
   // reset interrupt flag and get INT_STATUS byte
   mpuInterrupt = false;
@@ -559,14 +624,10 @@ void recordData() {
     dataFile2.println(String(ay));
     dataFile3.println(String(az));
 
-    if (varForDataCount % 500 == 0) {
-      dataFile1.close();
-      dataFile2.close();
-      dataFile3.close();
-
-      dataFile3 = SD.open("3.txt", FILE_WRITE);
-      dataFile2 = SD.open("2.txt", FILE_WRITE);
-      dataFile1 = SD.open("1.txt", FILE_WRITE);
+    if (varForDataCount % 1024 == 0) {
+      dataFile1.flush();
+      dataFile2.flush();
+      dataFile3.flush();
     }
 
 
@@ -615,19 +676,19 @@ void sendtoServer() {
   // http의 get 메세지 사용 웹페이지 요청
   Serial.println("Connected to server");
 
-  results = SD.open(timeFileName);
+  timer = SD.open(timeFileName);
 
-  if (results) {
+  if (timer) {
     //read first line which contains time information FFT data
-    stringToSend = results.readStringUntil('\n');
-    stringToSend = stringToSend + results.readStringUntil('\n');
+    stringToSend = timer.readStringUntil('\n');
+    stringToSend = stringToSend + timer.readStringUntil('\n');
     String timeAndUserNo = stringToSend;
     String start = timeAndUserNo.substring(0, timeAndUserNo.indexOf("Sent") + 7);
     String finish = timeAndUserNo.substring(timeAndUserNo.indexOf("Sent") + 8);
     Serial.println(start);
     Serial.println(finish);
-    results.close();
-    stringToSend= ""; 
+    timer.close();
+    stringToSend = "";
     results = SD.open(resultFileName);
     // read from the file until there's nothing else in it:
     while (results.available()) {
@@ -650,13 +711,13 @@ void sendtoServer() {
 
       //if it is not the first line, we need to concatenate {"data":[ to fit data transfer protocol
       buff = stringToSend;
-      Serial.println("buff is "+ buff);
+//      Serial.println("buff is " + buff);
       stringToSend = start + String(numOfDataSent);
       stringToSend = stringToSend + finish + buff;
 
       httpClient.println("POST /v/data HTTP/1.1");
       httpClient.println("Host: capstone.cafe24app.com");
-      httpClient.println("Connection: close"); 
+      httpClient.println("Connection: close");
       httpClient.println("Content-Type: application/json");
       httpClient.print("Content-Length: ");
       httpClient.println(stringToSend.length());
