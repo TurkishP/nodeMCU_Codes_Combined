@@ -96,7 +96,6 @@ String buff;
 
 char *ssid = "BCI Lab";
 char *password = "bcilab317a";
-//char *content ="{\"n\":\"daehoandmyeonghu\"}";
 
 //**************************   FFT headers + variables + definitions   ************************************
 #include "arduinoFFT.h"
@@ -227,12 +226,12 @@ void setup() {
     results = SD.open(resultFileName, FILE_WRITE);
   }
   
-//  // For FFT
-  if (control == 2) {
-    dataFile1 = SD.open("1.txt");
-    dataFile2 = SD.open("2.txt");
-    dataFile3 = SD.open("3.txt");
-  }
+////  // For FFT
+//  if (control == 2) {
+//    dataFile1 = SD.open("1.txt");
+//    dataFile2 = SD.open("2.txt");
+//    dataFile3 = SD.open("3.txt");
+//  }
   sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
   
 
@@ -251,6 +250,8 @@ void setup() {
 void loop() {
   //   //get time stamp
   if (firstTime == 1 && control == 1) {
+//    Serial.println("We tried to setup again");
+//    setup();
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
 
@@ -309,21 +310,21 @@ void loop() {
 
     dataString = ("{\"time\":" + String(line) + ",\"numOfDataSent\":\"" + String(numOfDataSent) + "\",\"user_no\":\"2\",\"data\":[");
     timer.println(dataString);
-//    Serial.println(dataString);
+    Serial.println(dataString);
     timer.close();
 //    results.close();
-
+WiFi.mode(WIFI_OFF);
 
 
 
     mpu.setDMPEnabled(true);
     ButtonPress = millis();
         firstTime = 0;
+
   }
 
   // read the pushbutton input pin
 
-//  boolean safe = false;
   buttonState = digitalRead(buttonPin);
 if(ButtonPress - millis() > 300){
   // compare the buttonState to its previous state
@@ -332,7 +333,6 @@ if(ButtonPress - millis() > 300){
     ButtonPress = millis();
     if (buttonState == HIGH) {
       // if the current state is HIGH then the button went from off to on:
-
 
         buttonPushCounter++;
         control++;
@@ -418,6 +418,9 @@ void doFFT() {
                   dataFile2.close();
                   dataFile3.close();
           control = 3;
+          count =0;
+          i=0;
+          xyz=0;
           return;
 
         }
@@ -746,6 +749,10 @@ void sendtoServer() {
   } else {
     // if the file didn't open, print an error:
     Serial.println("Error Opening File");
-
+stringConcat = 1;
+numOfDataSent = 0;
+varForDataCount = 0;
   }
+  WiFi.mode(WIFI_OFF);
+
 }
