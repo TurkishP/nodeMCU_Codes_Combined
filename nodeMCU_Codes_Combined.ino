@@ -94,8 +94,10 @@ File dataFile1, dataFile2, dataFile3, results, timer;
 #include <SPI.h>
 String buff;
 
-char *ssid = "BCI Lab";
-char *password = "bcilab317a";
+//char *ssid = "BCI Lab";
+//char *password = "bcilab317a";
+char *ssid = "ClubUnion208";
+char *password = "dgrmO208";
 
 //**************************   FFT headers + variables + definitions   ************************************
 #include "arduinoFFT.h"
@@ -164,9 +166,9 @@ void setup() {
   mpu.setXGyroOffset(-1249);
   mpu.setYGyroOffset(-1627);
   mpu.setZGyroOffset(1104);
-  mpu.setXAccelOffset(179); // 1688 factory default for my test chip
-  mpu.setYAccelOffset(-67); // 1688 factory default for my test chip
-  mpu.setZAccelOffset(0); //
+  mpu.setXAccelOffset(-2300); // 1688 factory default for my test chip
+  mpu.setYAccelOffset(-4300); // 1688 factory default for my test chip
+  mpu.setZAccelOffset(-1600); //
 
   // make sure it worked (returns 0 if so)
   if (devStatus == 0) {
@@ -228,9 +230,9 @@ void setup() {
   
 ////  // For FFT
 //  if (control == 2) {
-//    dataFile1 = SD.open("1.txt");
-//    dataFile2 = SD.open("2.txt");
-//    dataFile3 = SD.open("3.txt");
+//    dataFile1 = SD.open("s1_1.txt");
+//    dataFile2 = SD.open("s1_2.txt");
+//    dataFile3 = SD.open("s1_3.txt");
 //  }
   sampling_period_us = round(1000000 * (1.0 / SAMPLING_FREQUENCY));
   
@@ -349,7 +351,6 @@ if(ButtonPress - millis() > 300){
       // if the current state is LOW then the button went from on to off:
       Serial.println("off");
     }
-    // Delay a little bit to avoid bouncing
   }
   // save the current state as the last state, for next time through the loop
   lastButtonState = buttonState;
@@ -374,6 +375,9 @@ if(ButtonPress - millis() > 300){
         dataFile1 = SD.open("1.txt");
         dataFile2 = SD.open("2.txt");
         dataFile3 = SD.open("3.txt");
+//        dataFile1 = SD.open("s1_1.txt");
+//        dataFile2 = SD.open("s1_2.txt");
+//        dataFile3 = SD.open("s1_3.txt");
       }
       
     doFFT();
@@ -528,7 +532,7 @@ void doFFT() {
       z_peakSum = 0;
       count = 0;
 
-      if (verification_z == 3) {
+      if (verification_x == 3) {
         x_use = 1;
       } else {
         x_use = 0;
@@ -688,8 +692,8 @@ void sendtoServer() {
     String timeAndUserNo = stringToSend;
     String start = timeAndUserNo.substring(0, timeAndUserNo.indexOf("Sent") + 7);
     String finish = timeAndUserNo.substring(timeAndUserNo.indexOf("Sent") + 8);
-    Serial.println(start);
-    Serial.println(finish);
+//    Serial.println(start);
+//    Serial.println(finish);
     timer.close();
     stringToSend = "";
     results = SD.open(resultFileName);
@@ -701,11 +705,11 @@ void sendtoServer() {
       }
       //each line has 7 minutes worth of data.
       //so here in the loop we are sending 5 lines making it 35 min worth of data
-      for (int x = 0; x < 5; x++) {
+//      for (int x = 0; x < 1; x++) {
         buff = results.readStringUntil('\n');
         //                        Serial.println("read Number " + String(x) + " and buff : " + buff);
         stringToSend = stringToSend + buff;
-      }
+//      }
 
       //after concatenating the data, get rid of the hanging comma at the end
       //and properly end the string by adding ]}.
@@ -728,7 +732,7 @@ void sendtoServer() {
       httpClient.println(stringToSend);
       Serial.println(stringToSend);
       stringToSend = "";
-      numOfDataSent = numOfDataSent + 35;
+      numOfDataSent = numOfDataSent + 7;
 
       //      웹 서버로부터 수신된 데이터를 줄 단위로 출력
       while (httpClient.available()) {
@@ -737,7 +741,7 @@ void sendtoServer() {
         Serial.print(line);
       }
 
-      //      delay(100);
+      delay(100);
       yield();
       httpClient.stop();
     }
